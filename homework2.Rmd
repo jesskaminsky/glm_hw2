@@ -1,0 +1,120 @@
+---
+title: "PHP 2514 - Homework 2"
+author: "Jess Kaminsky"
+date: "3/05/2018"
+output: html_document
+---
+
+
+
+```{r setup, include=FALSE}
+library(stargazer)
+library(knitr)
+```
+
+```{r, echo = FALSE}
+wine <- read.csv("Wine.csv")
+names(wine)[1] <- "COUNTRY"
+
+wine$log.wine <- log(wine$WINE)
+wine$log.mortality <- log(wine$MORTALITY)
+```
+
+1A.
+When exploring the relationship between CHD mortality rate from wine consumption level, the plot of of the raw data - mortality rate vs. wine consumption - appears nonlinear. To further explore the trend between our outcome and predictor, we will consider log transformations on the outcome, the predictor, or both. Based on the scatterplots below, plot 4, the plot that shows log wine consumption vs log mortality appears the most linear.
+```{r}
+par(mfrow = c(2,2))
+plot(wine$WINE, wine$MORTALITY, ylab = "CHD Mortality Rate", xlab = "Wine Consumption")
+plot(wine$WINE, wine$log.mortality, ylab = "Log CHD Mortality Rate", xlab = "Wine Consumption")
+plot(wine$log.wine, wine$MORTALITY, ylab = "CHD Mortality Rate", xlab = "Log Wine Consumption")
+plot(wine$log.wine, wine$log.mortality, ylab = "Log CHD Mortality Rate", xlab = "Log Wine Consumption")
+```
+
+To further assess which transformation will generate the best predictive model, we will generate a linear model for the raw data and each of the transformations to be considered.
+
+```{r star, results = 'asis', warning=FALSE, message=FALSE, echo = FALSE}
+m1 <- lm(wine$WINE ~ wine$MORTALITY)
+m2 <- lm(wine$WINE ~ wine$log.mortality)
+m3 <- lm(wine$log.wine ~ wine$MORTALITY)
+m4 <- lm(wine$log.wine ~ wine$log.mortality)
+stargazer(m1, type = "html")
+stargazer(m2, type = "html")
+stargazer(m3, type = "html")
+stargazer(m4, type = "html")
+```
+
+
+
+QUESTION 3
+```{r, echo = FALSE}
+bloodbrain <- read.csv("BloodBrain.csv")
+names(bloodbrain)[1] <- "BRAIN"
+```
+
+
+Compute "Jittered" versions of-treatment, days after inoculation, and an indicator variable for females by adding small random numbers to each (uniform random numbers between -.15 and .15 work well). Or you could use the jitter function.
+
+```{r}
+bloodbrain$FACTOR.TIME <- as.factor(bloodbrain$TIME)
+
+bloodbrain$JITTER.DAYS <- jitter(bloodbrain$DAYS)
+
+bloodbrain$TREAT <- as.numeric(bloodbrain$TREAT)
+bloodbrain$JITTER.TREAT <- jitter(bloodbrain$TREAT)
+
+bloodbrain$SEX <- as.numeric(bloodbrain$SEX)
+for(i in 1:length(bloodbrain$SEX)) {
+  if(bloodbrain$SEX[i] == 2) {
+    bloodbrain$SEX[i] <- 0
+  }
+}
+bloodbrain$JITTER.SEX <- jitter(bloodbrain$SEX)
+```
+
+Obtain a matrix of scatter plots for the following variables: log sacrifice time, treatment (jittered), days after inoculation (jittered), sex (jittered), and the log of the brain tumor-to-liver antibody ratio. Use the function pairs in the graphics package or scatterplotMatrix in the car package.
+
+```{r}
+pairs(~log(TIME) + JITTER.TREAT + JITTER.DAYS + JITTER.SEX + log(BRAIN/TUMOR), data = bloodbrain)
+```
+
+Obtain a matrix of the correlation coefficients among the same five variables (not jittered).
+
+```{r}
+pairs(~log(TIME) + TREAT + DAYS + SEX + log(BRAIN/TUMOR), data = bloodbrain)
+```
+
+On the basis of this, what can be said about the relationship between the covariates (sex and days after inoculation), the response, and the design variables (treatment and sacrifice time.
+
+Fit the regression of the log response (brain tumor-to-liver antibody ratio) on an indicator variable for treatment and on sacrifice time treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and 72 hours). Use the model to find the estimated mean of the log response at each of the eight treatment combinations (all combinations of the two infusions and the four sacrifice times).
+
+
+```{r}
+bloodbrain$TREAT <- as.factor(bloodbrain$TREAT)
+
+m5 <- lm(log(BRAIN/TUMOR) ~ TREAT + FACTOR.TIME, data = bloodbrain)
+
+inputs <- data.frame(TREAT = as.factor(c(rep(1,4), rep(2,4))), FACTOR.TIME = as.factor(c(rep(c(.5,3,24,72),2))))
+
+ESTIMATES <- predict(m5, inputs)
+
+results <- cbind(inputs, ESTIMATES)
+kable(results)
+```
+
+Let X represent log of sacrifice time. Fit the regression of the log response on an indicator variable for treatment, X, X2, and X3. Use the estimated model to find the estimated mean of the log response at each of the eight treatment combinations.
+
+```{r}
+m6 <- lm(log(BRAIN/TUMOR) ~ TREAT + log(TIME), data = bloodbrain)
+```
+
+Why are the answers to parts (5) and (6) the same?
+
+Fit the regression of the log response (brain tumor-to-liver antibody ratio) on all covariates, the treatment indicator, and sacrifice time, treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and 72 hours).
+
+Obtain a set of case influence statistics, including a measure of influence, the leverage, and the studentized residua1.
+
+Discuss whether any influential observations or outliers occur with respect to this fit.
+
+
+
+

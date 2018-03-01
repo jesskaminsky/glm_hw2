@@ -25,11 +25,14 @@ for(i in 2:ncol(bush)){
   bush[,i] <- as.numeric(bush[,i])
 }
 #### 2a ####
-attach(remove_pb)
+
 remove_pb <- bush[!bush$country %in% c("PALM BEACH"),]
 pb_data <- bush[bush$country %in% c("PALM BEACH"),]
-plot(remove_pb$bush2000, remove_pb$buchanan2000, xlab = "Number of Votes for Bush", ylab = "Number of Votes for Buchanan", main = "Votes for George W. Bush and Pat Buchanan in 2000 Election")buch_lm <- lm(buchanan2000~bush2000)
-summary(buch_lm)
+plot(remove_pb$bush2000, remove_pb$buchanan2000, xlab = "Number of Votes for Bush", ylab = "Number of Votes for Buchanan", main = "Votes for George W. Bush and Pat Buchanan in 2000 Election")
+
+attach(remove_pb)
+buch_lm <- lm(buchanan2000~bush2000)
+
 
 predict(buch_lm, data.frame(bush2000 = pb_data$bush2000), interval = "prediction")
 
