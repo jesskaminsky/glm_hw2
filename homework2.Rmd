@@ -104,14 +104,33 @@ kable(results)
 Let X represent log of sacrifice time. Fit the regression of the log response on an indicator variable for treatment, X, X2, and X3. Use the estimated model to find the estimated mean of the log response at each of the eight treatment combinations.
 
 ```{r}
-m6 <- lm(log(BRAIN/TUMOR) ~ TREAT + log(TIME), data = bloodbrain)
+bloodbrain$LOG.TIME <- log(bloodbrain$TIME)
+
+m6 <- lm(log(BRAIN/TUMOR) ~ TREAT + LOG.TIME, data = bloodbrain)
+
+log.inputs <- data.frame(cbind(TREAT = inputs$TREAT, LOG.TIME = rep(unique(bloodbrain$LOG.TIME), 2))) 
+
+log.inputs$TREAT <- as.factor(log.inputs$TREAT)
+
+LOG.ESTIMATES <- predict(m6, log.inputs)
+
+log.results <- cbind(log.inputs, LOG.ESTIMATES)
+kable(log.results)
 ```
 
 Why are the answers to parts (5) and (6) the same?
 
-Fit the regression of the log response (brain tumor-to-liver antibody ratio) on all covariates, the treatment indicator, and sacrifice time, treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and 72 hours).
+Fit the regression of the log response (brain tumor-to-liver antibody ratio) on all covariates, the treatment indicator, and sacrifice time, treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and s72 hours).
+
+```{r}
+m7 <- lm(log(BRAIN/TUMOR) ~ DAYS + SEX + WEIGHT + LOSS + TUMOR + TREAT + FACTOR.TIME, data = bloodbrain)
+```
 
 Obtain a set of case influence statistics, including a measure of influence, the leverage, and the studentized residua1.
+
+```{r}
+
+```
 
 Discuss whether any influential observations or outliers occur with respect to this fit.
 
