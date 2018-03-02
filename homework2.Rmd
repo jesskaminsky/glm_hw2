@@ -31,16 +31,53 @@ plot(wine$log.wine, wine$log.mortality, ylab = "Log CHD Mortality Rate", xlab = 
 To further assess which transformation will generate the best predictive model, we will generate a linear model for the raw data and each of the transformations to be considered.
 
 ```{r star, results = 'asis', warning=FALSE, message=FALSE, echo = FALSE}
-m1 <- lm(wine$WINE ~ wine$MORTALITY)
-m2 <- lm(wine$WINE ~ wine$log.mortality)
-m3 <- lm(wine$log.wine ~ wine$MORTALITY)
-m4 <- lm(wine$log.wine ~ wine$log.mortality)
+m1 <- lm(wine$MORTALITY ~ wine$WINE)
+m2 <- lm(wine$log.mortality ~ wine$WINE)
+m3 <- lm(wine$MORTALITY ~ wine$log.wine)
+m4 <- lm(wine$log.mortality ~ wine$log.wine)
+summary(m1)
+summary(m2)
+summary(m3)
+summary(m4)
+
+par(mfrow = c(2,2))
+plot(m1)
+plot(m2)
+plot(m3)
+plot(m4)
+
 stargazer(m1, type = "html")
 stargazer(m2, type = "html")
 stargazer(m3, type = "html")
 stargazer(m4, type = "html")
 ```
-QUESTION 2
+When assessing the four linear models that have been fit, model 4 appears to be the best model for predicting CHD mortality from wine consumption. Model 4 has the highest r-squared value - 72.21% of the variation in CHD mortality rate can be explained by wine consumption. Also, when comparing the normal Q-Q plots among all 4 models, we see that the points on the Q-Q plot for model 4 fall closest to the line overall - therefore satisfying the normality assumption of a linear model. The points on the plot of residuals vs fitted for model 4 appears to be the most randomly and evenly distributed around 0 when compared to the other 3 models. The residual standard error for this model is 0.2885, the smallest among all 4 models.
+
+When fitting a linear model on the raw data, predicting mortality rate from wine consumption, the results indicate:
+
+CHD Mortality Rate = 7.68655 - 0.07608*Wine Consumption
+
+This model suggets that the mortality rate for a country with wine consumption equal to 0 is 7.68655. For every 10 unit increase in wine consumption, we expect CHD mortality rate to decrease by .7608.
+
+Model 2 fits a linear model predicting the log mortality rate from wine consumption.
+
+Log CHD Mortality Rate = 2.045 - 0.0159*Wine Consumption
+
+When wine consumption is equal to 0 the expected log mortality rate is 2.045. To transform this expectation back from the log scale, we should compute e^2.045 = 7.729. That is - if a country does not consume wine, its CHD Mortality Rate is expected to be 7.729. For every 10 unit increase in wine consumption, ##we expect a median proportional decrease of e^(0.0159*10) = 1.172 in CHD Mortality Rate##
+
+Model 3 fits a linear model predicting CHD mortality rate from log wine consumption.
+
+CHD Mortality Rate = 10.2795 - 1.771*Log Wine Consumption
+
+When wine consumption is equal to 1 - log wine consumption is equal to 0 - we expect CHD mortality rate to be 10.2795. Doubling the wine consumption rate decreases the CHD mortality rate by log(2)*1.771 = 1.227.
+
+Model 4 fits a linear model predicting log CHD mortality rate from log wine consumption. 
+
+Log CHD Mortality Rate = 2.55 - 0.3556*Log Wine Consumption
+
+When wine consumption is equal to 1 - log wine consumption is equal to 0 - we expect mortality rate to be e^2.55 = 12.81. If wine consumption doubles then CHD mortality decreases by 21.84% - CHD mortality is 78.15% of its original value determined by calculating e^(-0.355*log(2)) = 0.7815.
+
+*QUESTION 2*
 
 ```{r, echo = FALSE}
 bush <- read.csv("Bush.csv")
