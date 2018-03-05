@@ -8,6 +8,11 @@ output: html_document
 ```{r setup, include=FALSE}
 library(stargazer)
 library(knitr)
+library(perturb)
+library(MASS)
+library(ggplot2)
+library(ggcorrplot)
+library(Hmisc)
 ```
 
 ```{r, echo = FALSE}
@@ -79,7 +84,6 @@ When wine consumption is equal to 1 - log wine consumption is equal to 0 - we ex
 
 
 
-
 QUESTION 2
 
 ```{r, echo = FALSE}
@@ -103,28 +107,30 @@ plot(remove_pb$bush2000, remove_pb$buchanan2000, xlab = "Number of Votes for Bus
 attach(remove_pb)
 buch_lm <- lm(buchanan2000~bush2000)
 
-
 predict(buch_lm, data.frame(bush2000 = pb_data$bush2000), interval = "prediction")
 ```
 
-
 2B.
 ```{r}
+summary(remove_pb)
 
+full_model <- lm(buchanan2000 ~ bush2000 + gore2000 + nader2000 + browne2000 + total2000 + clinton96 + dole96 + perot96 + buchanan96p + reform.reg + total.reg, data = remove_pb)
 
+summary(full_model)
+colldiag(full_model) #results not concerning
+
+stepwise_model <- stepAIC(full_model, direction = "both")
+stepwise_model$anova
 ```
 
 
 QUESTION 3
+
+
 ```{r, echo = FALSE}
 bloodbrain <- read.csv("BloodBrain.csv")
 names(bloodbrain)[1] <- "BRAIN"
-```
-
-
-Compute "Jittered" versions of-treatment, days after inoculation, and an indicator variable for females by adding small random numbers to each (uniform random numbers between -.15 and .15 work well). Or you could use the jitter function.
-
-```{r}
+bloodbrain$RATIO <- bloodbrain$BRAIN/bloodbrain$LIVER
 bloodbrain$FACTOR.TIME <- as.factor(bloodbrain$TIME)
 
 bloodbrain$JITTER.DAYS <- jitter(bloodbrain$DAYS)
@@ -139,29 +145,36 @@ for(i in 1:length(bloodbrain$SEX)) {
   }
 }
 bloodbrain$JITTER.SEX <- jitter(bloodbrain$SEX)
+bloodbrain$LOG.RATIO <- log(bloodbrain$RATIO)
+bloodbrain$LOG.TIME <- log(bloodbrain$TIME)
+
+head(bloodbrain)
 ```
 
-Obtain a matrix of scatter plots for the following variables: log sacrifice time, treatment (jittered), days after inoculation (jittered), sex (jittered), and the log of the brain tumor-to-liver antibody ratio. Use the function pairs in the graphics package or scatterplotMatrix in the car package.
+In order to obtain a clearer picture of the spread of our data - particularly discrete and categorical data - we will create jittered versions of the treatment, sex, and days after inoculation variables. 
+
 
 ```{r}
-pairs(~log(TIME) + JITTER.TREAT + JITTER.DAYS + JITTER.SEX + log(BRAIN/TUMOR), data = bloodbrain)
+pairs(~LOG.TIME + JITTER.TREAT + JITTER.DAYS + JITTER.SEX + LOG.RATIO, data = bloodbrain)
 ```
 
 Obtain a matrix of the correlation coefficients among the same five variables (not jittered).
 
 ```{r}
-pairs(~log(TIME) + TREAT + DAYS + SEX + log(BRAIN/TUMOR), data = bloodbrain)
+pairs(~LOG.TIME + TREAT + DAYS + SEX + LOG.RATIO, data = bloodbrain)
+
+rcorr(as.matrix(bloodbrain[c(16,4,5,6,15)]))
 ```
 
-On the basis of this, what can be said about the relationship between the covariates (sex and days after inoculation), the response, and the design variables (treatment and sacrifice time.
+When observing scatterplots and the correlations among log sacrifice time, treatment groups, days after inoculation, sex, and log of brain tumor to antibody ratio there are some trends to be observed. Based on the correlation coefficients, the strongest correlations is between log time and log ratio with a correlation coefficient = 0.94. Based on the p-values, we can be 95% confident that the true correlation coefficient between the following pairs variables are not equal to 0 because their p-values are less than 0.05: sex and log time, log time and log ratio, days and log ratio, sex and log ratio. The significance of the correlation coefficients between the log transformed variables and many of the other variables indicates that this transformation is appropriate and helps to normalize our data in order to obtain the best linear model. 
 
-Fit the regression of the log response (brain tumor-to-liver antibody ratio) on an indicator variable for treatment and on sacrifice time treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and 72 hours). Use the model to find the estimated mean of the log response at each of the eight treatment combinations (all combinations of the two infusions and the four sacrifice times).
+*talk more about scatter plots in relation to the above paragraph*
 
 
 ```{r}
 bloodbrain$TREAT <- as.factor(bloodbrain$TREAT)
 
-m5 <- lm(log(BRAIN/TUMOR) ~ TREAT + FACTOR.TIME, data = bloodbrain)
+m5 <- lm(LOG.RATIO ~ TREAT + FACTOR.TIME, data = bloodbrain)
 
 inputs <- data.frame(TREAT = as.factor(c(rep(1,4), rep(2,4))), FACTOR.TIME = as.factor(c(rep(c(.5,3,24,72),2))))
 
@@ -173,12 +186,15 @@ kable(results)
 
 Let X represent log of sacrifice time. Fit the regression of the log response on an indicator variable for treatment, X, X2, and X3. Use the estimated model to find the estimated mean of the log response at each of the eight treatment combinations.
 
+*does this mean to fit the model with log.time squared and cubed?*
+
 ```{r}
-bloodbrain$LOG.TIME <- log(bloodbrain$TIME)
+bloodbrain$LOG.TIME2 <- bloodbrain$LOG.TIME^2
+bloodbrain$LOG.TIME3 <- bloodbrain$LOG.TIME^3
 
-m6 <- lm(log(BRAIN/TUMOR) ~ TREAT + LOG.TIME, data = bloodbrain)
+m6 <- lm(LOG.RATIO ~ TREAT + LOG.TIME + LOG.TIME2 + LOG.TIME3, data = bloodbrain)
 
-log.inputs <- data.frame(cbind(TREAT = inputs$TREAT, LOG.TIME = rep(unique(bloodbrain$LOG.TIME), 2))) 
+log.inputs <- data.frame(cbind(TREAT = inputs$TREAT, LOG.TIME = rep(unique(bloodbrain$LOG.TIME), 2), LOG.TIME2 = rep(unique(bloodbrain$LOG.TIME)^2, 2), LOG.TIME3 = rep(unique(bloodbrain$LOG.TIME)^3, 2))) 
 
 log.inputs$TREAT <- as.factor(log.inputs$TREAT)
 
@@ -188,21 +204,27 @@ log.results <- cbind(log.inputs, LOG.ESTIMATES)
 kable(log.results)
 ```
 
-Why are the answers to parts (5) and (6) the same?
+*Why are the answers to parts (5) and (6) the same?*
 
 Fit the regression of the log response (brain tumor-to-liver antibody ratio) on all covariates, the treatment indicator, and sacrifice time, treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and s72 hours).
+Obtain a set of case influence statistics, including a measure of influence, the leverage, and the studentized residual. Discuss whether any influential observations or outliers occur with respect to this fit.
 
 ```{r}
-m7 <- lm(log(BRAIN/TUMOR) ~ DAYS + SEX + WEIGHT + LOSS + TUMOR + TREAT + FACTOR.TIME, data = bloodbrain)
+m7 <- lm(LOG.RATIO ~ DAYS + SEX + WEIGHT + LOSS + TUMOR + TREAT + FACTOR.TIME, data = bloodbrain)
+
+par(mfrow = c(2,2))
+plot(m7)
+
+influence <- as.data.frame(influence.measures(m7)[[1]])
+boxplot(influence$cook.d)
+boxplot(influence$dffit)
+
+studres(m7)
+
+plot(studres(m7), ylim = c(-2,2), ylab = "", xlab = "", main = "Studentized Residuals of Model 7")
+abline(h = 0)
 ```
 
-Obtain a set of case influence statistics, including a measure of influence, the leverage, and the studentized residual.
-
-```{r}
-influence.measures(m7)
-```
-
-Discuss whether any influential observations or outliers occur with respect to this fit.
 
 
 QUESTION 5
