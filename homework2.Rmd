@@ -2,7 +2,7 @@
 title: "PHP 2514 - Homework 2"
 author: "Jess Kaminsky"
 date: "3/05/2018"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -23,8 +23,8 @@ wine$log.wine <- log(wine$WINE)
 wine$log.mortality <- log(wine$MORTALITY)
 ```
 
-1A.
 When exploring the relationship between CHD mortality rate from wine consumption level, the plot of of the raw data - mortality rate vs. wine consumption - appears nonlinear. To further explore the trend between our outcome and predictor, we will consider log transformations on the outcome, the predictor, or both. Based on the scatterplots below, plot 4, the plot that shows log wine consumption vs log mortality appears the most linear.
+
 ```{r}
 par(mfrow = c(2,2))
 plot(wine$WINE, wine$MORTALITY, ylab = "CHD Mortality Rate", xlab = "Wine Consumption")
@@ -68,7 +68,7 @@ Model 2 fits a linear model predicting the log mortality rate from wine consumpt
 
 Log CHD Mortality Rate = 2.045 - 0.0159*Wine Consumption
 
-When wine consumption is equal to 0 the expected log mortality rate is 2.045. To transform this expectation back from the log scale, we should compute e^2.045 = 7.729. That is - if a country does not consume wine, its CHD Mortality Rate is expected to be 7.729. For every 10 unit increase in wine consumption, ##we expect a median proportional decrease of e^(0.0159*10) = 1.172 in CHD Mortality Rate##
+When wine consumption is equal to 0 the expected log mortality rate is 2.045. To transform this expectation back from the log scale, we should compute e^2.045 = 7.729. That is - if a country does not consume wine, its CHD Mortality Rate is expected to be 7.729. For every 10 unit increase in wine consumption, we expect CHD mortality rate to decrease by 79.6% - CHD mortality is 20.39% of its original value determined by calculating e^(-0.0159*10).
 
 Model 3 fits a linear model predicting CHD mortality rate from log wine consumption.
 
@@ -90,39 +90,118 @@ QUESTION 2
 bush <- read.csv("Bush.csv")
 names(bush)[1] <- "country"
 
-for(i in 2:ncol(bush)){
-  bush[,i] <- as.numeric(bush[,i])
-}
+bush[,2:ncol(bush)] <- lapply(bush[,2:ncol(bush)], function(x){as.numeric(gsub(",", "", x))})
 
 remove_pb <- bush[!bush$country %in% c("PALM BEACH"),]
 pb_data <- bush[bush$country %in% c("PALM BEACH"),]
 
+log.remove_pb <- remove_pb
+
+log.remove_pb$reform.reg <- log.remove_pb$reform.reg + 0.00001
+
+for(i in 2:ncol(log.remove_pb)) {
+  log.remove_pb[,i] <- log(log.remove_pb[,i])
+}
 ```
 
-2A.
+We can see in Display 8.25 that Buchanan received more votes than expected in Palm Beach County because the point falls much higher on the y-axis than every other data point - the rest of the points in the scatterplot seem to follow a somewhat linear trend, but the data point for Palm Beach is an extreme outlier. 
+
+**INSERT DISPLAY 8.25**
+
+When initially exploring the data, we see that a scatter plot of the votes for Bush vs. the votes for Buchanan - after remove the Palm Beach data - appear to be somewhat linearly correlated. The correlation between the 2 variables is 0.867. 
 
 ```{r}
 plot(remove_pb$bush2000, remove_pb$buchanan2000, xlab = "Number of Votes for Bush", ylab = "Number of Votes for Buchanan", main = "Votes for George W. Bush and Pat Buchanan in 2000 Election")
 
-attach(remove_pb)
-buch_lm <- lm(buchanan2000~bush2000)
-
-predict(buch_lm, data.frame(bush2000 = pb_data$bush2000), interval = "prediction")
+cor(remove_pb$bush2000, remove_pb$buchanan2000)
 ```
 
-2B.
+Although, after looking at Q-Q plot from a simple model predicting Buchanan's votes from Bush's votes in 2000, we see that the data does not appear normally distributed. 
+
+**Plots of the Linear Model Prediciting Buchanan Votes from Bush Votes on the raw data**
 ```{r}
-summary(remove_pb)
+par(mfrow = c(2,2))
+plot(lm(buchanan2000~bush2000, data = remove_pb))
+```
 
-full_model <- lm(buchanan2000 ~ bush2000 + gore2000 + nader2000 + browne2000 + total2000 + clinton96 + dole96 + perot96 + buchanan96p + reform.reg + total.reg, data = remove_pb)
+When considering a transformation of the data, applying a log transformation to both the outcome and predictor variables appears to provide the best model fit. 
 
+**Plots of the Linear Model Prediciting Log of Buchanan Votes from Log of Bush Votes**
+
+```{r}
+par(mfrow = c(2,2))
+plot(buch_lm)
+```
+
+The predictive linear model generated on the log transformed data is: 
+
+
+Log(Buchanan Votes in 2000) = -2.341 + 0.731*Log(Bush Votes in 2000)
+
+If Bush received 1 vote, log of his votes would be equal to 0 - we would then expect Buchanan to receive e^(-2.341) = 0.096 votes; however this is extrapolation as Bush did not receive only 1 vote in any county in Florida. When interpeting the predictive model, we can see that when the vote count for Bush doubles, Buchanan's votes will increase by 65.9%
+
+```{r}
+buch_lm <- lm(buchanan2000~bush2000, data = log.remove_pb)
+summary(buch_lm)
+```
+
+
+Based on the linear model presented above and the Palm Beach data from 2000, we expect that Buchanan should have received approximately 592 votes. We are 95% confident that the true number of votes for Buchanan should have been between 250 and 1399 votes - based on a 95% prediction interval.
+
+```{r}
+kable(exp(predict(buch_lm, data.frame(bush2000 = log(pb_data$bush2000)), interval = "prediction")))
+```
+
+In Palm Beach County in 2000, Buchanan received 3407 votes. Using the prediction interval and assuming that this vote count actually contains a number of votes intended for Gore it is likely that between 2008 and 3157 of the votes Buchanan received were actually intended for Gore. These numbers were calculated by subtracting the upper and lower bounds of the prediction interval of Buchanan votes in Palm Beach from the actualy count of Buchanana votes in Palm Beach. 
+
+We will now continue to explore and analyze our data by trying to find the best linear model for predicting the number of votes for Buchanan in 2000 using all the variables provided in our dataset. 
+The first step is to explore the linear model prediciting Buchanan's votes from all the variables in our dataset without any transformation. From the Q-Q plot below, we can see that many of the points deviate from the line, indicating that a transformation of our data is likely appropriate in order to ensure normality of our data.
+
+**Plots of the Linear Model Prediciting Buchanan Votes from all other variables in dataset**
+```{r}
+par(mfrow = c(2,2))
+plot(lm(buchanan2000 ~ bush2000 + gore2000+ nader2000 + browne2000 + total2000 + clinton96 + dole96 + perot96 + buchanan96p + reform.reg + total.reg, data = remove_pb))
+```
+
+After exploring different combinations of transformations on the dependent variables and predictors, the transformation that appears to satisfy the normality assumption best is a log transformation of all variables. This can be seen in the Q-Q plot below.
+
+**Plots of the Linear Model Prediciting Log of Buchanan Votes from Log of all other variables in dataset**
+```{r}
+par(mfrow = c(2,2))
+plot(full_model)
+```
+
+Results of the log transformed model are presented below. The intercept term, Browne2000, and Perot96 are the only significant coefficients in our model. The model has a fairly strong correlation coefficient of 0.8829. When assessing potential collinearity among the predictors in the model, the collinearity matrix below has a fairly high condition index for the reform.reg and total.reg predictors. This makes sense because reform.reg is the registration count in Buchanan's reform party while total.reg is the total political party registration. Reform.reg plus the registration of all other parties is equal to total.reg.
+
+```{r}
+full_model <- lm(buchanan2000 ~ bush2000 + gore2000+ nader2000 + browne2000 + total2000 + clinton96 + dole96 + perot96 + buchanan96p + reform.reg + total.reg, data = log.remove_pb)
 summary(full_model)
-colldiag(full_model) #results not concerning
+colldiag(full_model)
+```
 
+We will use stepwise model selection by AIC to find the best predictive model that increases R-squared, gives us more significant predictors, and minimizes collinearity among predictors. The stepwise process is shown below.
+
+```{r}
 stepwise_model <- stepAIC(full_model, direction = "both")
+
 stepwise_model$anova
 ```
 
+The best final model predicts Buchanan from Nader2000, Browne2000, Total2000, Clinton96, Perot96, Buchanan96p, and total.reg. In this final model, all predictors included are significant except for Buchanan96p. Our correlation coefficient is slightly higher than the full model at 0.8862. There is much less evidence of collinearity among the predictors.  
+```{r}
+final_model <- lm(buchanan2000 ~ nader2000 + browne2000 + total2000 + clinton96 + 
+    perot96 + buchanan96p + total.reg, data = log.remove_pb)
+
+par(mfrow = c(2,2))
+plot(final_model)
+summary(final_model)
+colldiag(final_model)
+```
+
+Below is the predicted value and prediction interval for Buchanan votes in 2000 based on the Palm Beach data and the model generated from stepwise regression. Our prediction interval is narrower than the the previous prediction interval generated from the simple model and the predicted value is slightly lower. The mean number of votes Buchanan received in all counties - excluding Palm Beach is 210.7576. The predicted number of Buchanan votes is closer to that value and likely closer to the true number of votes Buchanan was expected to receive.
+```{r}
+kable(exp(predict(final_model, data.frame(nader2000 = log(pb_data$nader2000), browne2000 = log(pb_data$browne2000), total2000 = log(pb_data$total2000), clinton96 = log(pb_data$clinton96), perot96 = log(pb_data$perot96), buchanan96p = log(pb_data$buchanan96p), total.reg = log(pb_data$total.reg)), interval = "prediction")))
+```
 
 QUESTION 3
 
@@ -148,83 +227,93 @@ bloodbrain$JITTER.SEX <- jitter(bloodbrain$SEX)
 bloodbrain$LOG.RATIO <- log(bloodbrain$RATIO)
 bloodbrain$LOG.TIME <- log(bloodbrain$TIME)
 
-head(bloodbrain)
 ```
-
-In order to obtain a clearer picture of the spread of our data - particularly discrete and categorical data - we will create jittered versions of the treatment, sex, and days after inoculation variables. 
-
+In order to obtain a clearer picture of the spread of our data - particularly discrete and categorical data - we will create jittered versions of the treatment, sex, and days after inoculation variables. Below, we see a matrix of scatter plots among log of sacrifice time, jittered treatment group, jittered days after inoculation, jittered sex, and log of the brain tumor to liver antibody ratio.
 
 ```{r}
 pairs(~LOG.TIME + JITTER.TREAT + JITTER.DAYS + JITTER.SEX + LOG.RATIO, data = bloodbrain)
 ```
 
-Obtain a matrix of the correlation coefficients among the same five variables (not jittered).
+Below is a matrix of correlation coefficients and p-values testing the nulll hypothesis that the true correlation coefficient is equal to 0 against the alternative that it is not equal to 0 for all combinations of variables presented in the above scatterplot matrix.
 
 ```{r}
-pairs(~LOG.TIME + TREAT + DAYS + SEX + LOG.RATIO, data = bloodbrain)
-
 rcorr(as.matrix(bloodbrain[c(16,4,5,6,15)]))
 ```
 
 When observing scatterplots and the correlations among log sacrifice time, treatment groups, days after inoculation, sex, and log of brain tumor to antibody ratio there are some trends to be observed. Based on the correlation coefficients, the strongest correlations is between log time and log ratio with a correlation coefficient = 0.94. Based on the p-values, we can be 95% confident that the true correlation coefficient between the following pairs variables are not equal to 0 because their p-values are less than 0.05: sex and log time, log time and log ratio, days and log ratio, sex and log ratio. The significance of the correlation coefficients between the log transformed variables and many of the other variables indicates that this transformation is appropriate and helps to normalize our data in order to obtain the best linear model. 
 
-*talk more about scatter plots in relation to the above paragraph*
-
+We will now fit a regression model predicting the log of the ratio on treatment group and sacrifice time, both as factor variables. The results of the model are presented below. The model appears to be quite successful at predicting the log ratio and has a strong linear fit. All predictors in this model are significant and the r-squared value is 0.9438.
 
 ```{r}
 bloodbrain$TREAT <- as.factor(bloodbrain$TREAT)
-
 m5 <- lm(LOG.RATIO ~ TREAT + FACTOR.TIME, data = bloodbrain)
+summary(m5)
+```
 
+The predicted values of the log brain tumor to liver antibody ratio and the transformed ratio for every combination of treatment and time are presented in the table below.
+
+```{r}
 inputs <- data.frame(TREAT = as.factor(c(rep(1,4), rep(2,4))), FACTOR.TIME = as.factor(c(rep(c(.5,3,24,72),2))))
-
 ESTIMATES <- predict(m5, inputs)
-
-results <- cbind(inputs, ESTIMATES)
+results <- cbind(inputs, LOG.ESTIMATED.MEAN = ESTIMATES, ESTIMATED.MEAN = exp(ESTIMATES))
 kable(results)
 ```
 
-Let X represent log of sacrifice time. Fit the regression of the log response on an indicator variable for treatment, X, X2, and X3. Use the estimated model to find the estimated mean of the log response at each of the eight treatment combinations.
-
-*does this mean to fit the model with log.time squared and cubed?*
+We will now fit a linear model predicting the log of the ratio on treatment as a factor variable, x = log of sacrifice time, x squared, and x-cubed. The results of the model are presented below. All predictors are significant and the r-squared is 0.9438 - the same as the model above.
 
 ```{r}
 bloodbrain$LOG.TIME2 <- bloodbrain$LOG.TIME^2
 bloodbrain$LOG.TIME3 <- bloodbrain$LOG.TIME^3
 
 m6 <- lm(LOG.RATIO ~ TREAT + LOG.TIME + LOG.TIME2 + LOG.TIME3, data = bloodbrain)
+summary(m6)
+```
 
+Below are the predicted values of log brain tumor to liver antibody ratio and the transformed ratio for every combination of treatment and log time. These predicted values are the same as the one generated from the model above. Both models produe the same results because each model includes three terms for the for level factor variable time which provides enough information to determine which combination of treatment and time an observation falls into. In this model log time and the 2 tranformations of log time act the same way as the factor variable in the previous model, but on a different scale.
+
+```{r}
 log.inputs <- data.frame(cbind(TREAT = inputs$TREAT, LOG.TIME = rep(unique(bloodbrain$LOG.TIME), 2), LOG.TIME2 = rep(unique(bloodbrain$LOG.TIME)^2, 2), LOG.TIME3 = rep(unique(bloodbrain$LOG.TIME)^3, 2))) 
-
 log.inputs$TREAT <- as.factor(log.inputs$TREAT)
-
 LOG.ESTIMATES <- predict(m6, log.inputs)
-
-log.results <- cbind(log.inputs, LOG.ESTIMATES)
+log.results <- cbind(log.inputs, LOG.ESTIMATED.MEAN = LOG.ESTIMATES, ESTIMATED.MEAN = exp(LOG.ESTIMATES))
 kable(log.results)
 ```
 
-*Why are the answers to parts (5) and (6) the same?*
-
-Fit the regression of the log response (brain tumor-to-liver antibody ratio) on all covariates, the treatment indicator, and sacrifice time, treated as a factor with four levels (include three indicator variables, for sacrifice time == 3, 24, and s72 hours).
-Obtain a set of case influence statistics, including a measure of influence, the leverage, and the studentized residual. Discuss whether any influential observations or outliers occur with respect to this fit.
+Below is a model predicting the log brain tumor to liver antibody ratio on all covariates. The r-squared is 0.9408 indicating a strong linear fit; however, only the treatment and time predictors are significant in this model. 
 
 ```{r}
 m7 <- lm(LOG.RATIO ~ DAYS + SEX + WEIGHT + LOSS + TUMOR + TREAT + FACTOR.TIME, data = bloodbrain)
-
-par(mfrow = c(2,2))
-plot(m7)
-
-influence <- as.data.frame(influence.measures(m7)[[1]])
-boxplot(influence$cook.d)
-boxplot(influence$dffit)
-
-studres(m7)
-
-plot(studres(m7), ylim = c(-2,2), ylab = "", xlab = "", main = "Studentized Residuals of Model 7")
-abline(h = 0)
+summary(m7)
 ```
 
+Observing the Q-Q plot suggests that this model does not satisfy the normality assumption.
+
+```{r}
+par(mfrow = c(2,2))
+plot(m7)
+```
+
+We will now assess measures of leverage and influence in this model.
+
+We look at the distribution of Cook's distance values to assess the influence of points in the data set. Most of the cook's values are quite small and close in relation to each other. Looking at the boxplot, we can see that there are two points that may be influential as they are larger than the rest of the data. These two points with cook's equal to 0.4777 and 0.311 may be considered influential. To further assess influence, we look at the difference in fitted values standardized. As a general rule, large dffits values are those larger than 2*squareroot((p+1)/n) - based on our model this value is 1.49. Our DFFITS values range from -2.99 to 1.94. The largest and smallest DFFITS values correspond to the two points that have large cook's d values. This is enough to consider these points - observations 31 and 34 - influential. 
+```{r}
+influence <- as.data.frame(influence.measures(m7)[[1]])
+boxplot(influence$cook.d, main = "Influence: Distribution of Cook's D Values")
+boxplot(influence$dffit, main = "Influence: Distribution of DFFITS Values")
+```
+
+To assess leverage in our model, we will look at the diagonal elements of the hat matrix. As a general rule, large hat values are those greater than (2*number of predictors) / sample size. In our model, 2p/n = .529. None of the hat values are larger than this. Also, when looking at the boxplot of hat values, we can see that none of the values are extremely different from the others. There is not evidence of leverage in this model.
+
+```{r}
+boxplot(influence$hat, main = "Leverage: Distribution of Hat Values")
+```
+
+Finally we will look at the studentized residuals. The residuals appear to be evenly and randomly distributed around 0, indicating that none of our points are outliers.
+
+```{r}
+plot(studres(m7), ylim = c(-2,2), ylab = "", xlab = "", main = "Studentized Residuals")
+abline(h = 0)
+```
 
 
 QUESTION 5
@@ -233,10 +322,26 @@ QUESTION 5
 #y in an rXm matrix of Y values
 #x is a vector of X values
 
-lmq <- function(y,x) {
+library(stats4)
+library(dplyr)
+
+set.seed(100)
+
+lmq <-function(x,y){
+  LL <- function(beta0,beta1,sigma,q){
+    beta= t(c(beta0,beta1))
+    resid = y - beta0 - beta1*x
+    R = dnorm(resid, mean = 0, sd=sqrt(x^(q*2)*sigma^2), log=TRUE)
+    -sum(R)
+  }
   
-  
+  mle(LL, list(beta0=2, beta1=1, sigma=1, q=1), method = "L-BFGS-B")
 }
+
+x = rep(seq(1,3,by=0.5),2000)
+y = 1 + 2*x + rnorm(length(x),0,1*x^1)
+
+lmq(x,y)
 
 ```
 
